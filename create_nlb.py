@@ -13,20 +13,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-ips', required=True, type=convert_list, help='Input a set of ips separated by comma')
 parser.add_argument('-subnets', required=True, type=convert_list, help='Input a set of subnets separated by comma')
 parser.add_argument('-vpcid', required=True, type=str, help='Input vpc id')
+parser.add_argument('-name', required=True, type=str, help='Input a tag name for the resource')
 
 args = parser.parse_args()
 
 subnets = args.subnets
 ip_list = args.ips
 vpc_id = args.vpcid
-
+name = args.name
 
 # Build the client
 lb = boto3.client('elbv2')
 
 def generate_target_group(client, port, vpcid):
     response = client.create_target_group(
-        Name=f'public-ftp-{str(uuid.uuid4())[:8]}',
+        Name=f'{name}-ftp-{str(uuid.uuid4())[:8]}',
         Protocol='TCP',
         Port=port,
         VpcId=vpcid,
@@ -43,9 +44,20 @@ def generate_target_group(client, port, vpcid):
     )
     return response['TargetGroups'][0]['TargetGroupArn']
 
+def modify_target_group(client, tg_arn):
+    client.modify_target_group_attributes(
+        TargetGroupArn=tg_arn,
+        Attributes=[
+            {
+                'Key': 'preserve_client_ip.enabled',
+                'Value': 'true'
+            },
+        ]
+    )
+
 def generate_load_balancer(client, subnets):
     response = client.create_load_balancer(
-        Name=f'public-ftp-{str(uuid.uuid4())[:8]}',
+        Name=f'{name}-ftp-{str(uuid.uuid4())[:8]}',
         Subnets=subnets,
         Scheme='internet-facing',
         Tags=[
@@ -101,7 +113,8 @@ if __name__ == "__main__":
     print("Load balancer created")
     port_list = [21] + list(range(8192,8201))
     for port in port_list:
-        tg_arn = generate_target_group(lb, port,vpc_id)
+        tg_arn = generate_target_group(lb, port, vpc_id)
+        modify_target_group(lb, tg_arn)
         for ip in ip_list:
             register_targets(lb, ip, tg_arn)
         create_listener(lb, lb_arn, port, tg_arn)

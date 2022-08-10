@@ -1,14 +1,15 @@
 from ftplib import FTP
 import uuid
 
-HOST = "public-ftp-e35e14a7-7465f0937c4a44be.elb.ap-northeast-1.amazonaws.com"
-USER = "wei"
+HOST = "172.31.71.15"
+USER = "efs_wei"
 PASSWORD = "19901022Zw!"
 FILENAME = "sample_data.zip"
 
 def upload_ftp(filename):
-    with FTP(host=HOST, user=USER, passwd=PASSWORD, encoding='utf-8') as ftp:
-        ftp.login()
+    with FTP(host=HOST, user=USER, passwd=PASSWORD) as ftp:
+        ftp.set_debuglevel(2)
+        ftp.login(user=USER, passwd=PASSWORD)
         with open(filename, "rb") as file:
             # Command for Uploading the file "STOR filename"
             ftp.storbinary(f"STOR {uuid.uuid4()}", file)
